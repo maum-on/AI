@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic
+pyyaml
+# + 너희가 쓰는 LLM SDK들 (openai, upstage 등)
+pytest
+httpx
+pytest-cov
