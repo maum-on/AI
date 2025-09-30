@@ -1,4 +1,5 @@
 flowchart TD
+
     A[Diary Input<br/>(text, meta)] --> B[Guard:<br/>Mask PII + Detect Crisis]
 
     B -->|Crisis Detected| C[[Crisis Reply]]
