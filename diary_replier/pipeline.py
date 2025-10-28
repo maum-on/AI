@@ -1,107 +1,77 @@
-# diary_replier/pipeline.py
-from typing import Dict, Any
-import os
-import logging
+import time
+from sqlalchemy.orm import Session
+from .schemas import DiaryInput, DiaryReplyOutput
+from .analyzer import analyze
+from .guard import safety_scan
+from .generator import generate_pair
+from api.models import save_diary_log, get_user_preset
 
-try:
-    from openai import OpenAI
-    from openai import AuthenticationError, APIError, RateLimitError
-except ImportError:
-    OpenAI = None
-    AuthenticationError = APIError = RateLimitError = Exception  # 안전하게 대체
+def run_pipeline(payload: DiaryInput) -> DiaryReplyOutput:
+    # 기존 단독 실행(로그/DB 미사용) 유지
+    return _run_core(payload, user_id=None, preset_override=None, db=None)
 
-log = logging.getLogger(__name__)
+def run_pipeline_with_logging(
+    payload: DiaryInput,
+    *,
+    user_id: str | None,
+    preset_override: str | None,
+    db: Session | None
+) -> DiaryReplyOutput:
+    return _run_core(payload, user_id=user_id, preset_override=preset_override, db=db)
 
-def diary_to_reply(payload, settings=None) -> Dict[str, Any]:
-    data = payload.model_dump() if hasattr(payload, "model_dump") else dict(payload)
-    text = (data.get("text") or "").strip()
-    opts = data.get("options") or {}
-    length_pref = (opts.get("length") or "both").lower()
+def _run_core(payload: DiaryInput, *, user_id, preset_override, db: Session | None):
+    t0 = time.time()
 
-    if not text:
-        return _empty_response()
+    # 1) 규칙 분석
+    analysis = analyze(payload.text)
 
-    # --- 간단 분석 / 플래그 ---
-    lower = text.lower()
-    danger_words = ["자해", "죽고", "해치", "폭력"]
-    safety_flag = any(w in text for w in danger_words)
-    valence = "negative" if any(k in lower for k in ["힘들", "불안", "우울", "짜증"]) else "neutral"
-    analysis = {
-        "valence": valence,
-        "emotions": [],
-        "keywords": [],
-        "summary": text[:120] + ("..." if len(text) > 120 else ""),
-    }
+    # 2) 안전 스캔
+    safety_flag, flags = safety_scan(payload.text)
 
-    # --- LLM 사용 여부 결정 ---
-    api_key = getattr(settings, "openai_api_key", None) if settings else os.getenv("OPENAI_API_KEY")
-    model_name = getattr(settings, "model_name", "gpt-4o-mini") if settings else "gpt-4o-mini"
-    strict = (os.getenv("DIARY_STRICT_LLM", "0") == "1")   # 1이면 실패 시 예외 전파
+    # 3) 프리셋/무드 결정 (우선순위: 요청 meta > 헤더 override > DB 저장 프리셋 > 기본 warm)
+    preset = (payload.meta or {}).get("preset")
+    if not preset and preset_override:
+        preset = preset_override
+    if not preset and db and user_id:
+        from_db = get_user_preset(db, user_id)
+        if from_db:
+            preset = from_db
+    preset = preset or "warm"
 
-    use_llm = bool(api_key and OpenAI and not api_key.startswith("test-"))
+    mood = (payload.meta or {}).get("mood")
+    if not mood and analysis.emotions:
+        mood = "/".join(analysis.emotions[:2])
 
-    reply_short = None
-    reply_normal = None
+    # 4) 생성 (짧은/보통)
+    reply_short, reply_normal = generate_pair(payload.text, mood, preset)
 
-    if use_llm:
-        try:
-            client = OpenAI(api_key=api_key)
-            system = "너는 일기에 따뜻하게 답장하는 친구야. 조언은 제안형, 과장 금지, 한국어."
-            if length_pref in ("short", "both"):
-                r = client.chat.completions.create(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": f"아래 일기에 한 문장으로 짧게 답장해줘.\n\n{text}"},
-                    ],
-                    temperature=0.6,
-                )
-                reply_short = r.choices[0].message.content.strip()
-            if length_pref in ("normal", "both"):
-                r = client.chat.completions.create(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": f"아래 일기에 2~4문장으로 부드럽게 답장해줘.\n\n{text}"},
-                    ],
-                    temperature=0.6,
-                )
-                reply_normal = r.choices[0].message.content.strip()
-        except (AuthenticationError, RateLimitError, APIError, Exception) as e:
-            # ✅ 테스트/로컬에서 200을 보장하기 위해 폴백으로 전환
-            log.warning("LLM 호출 실패, 폴백으로 전환합니다: %s", e)
-            if strict:
-                # 운영에서 강제 실패하고 싶을 때만 500로 올려보냄
-                raise
-            reply_short, reply_normal = _fallback_replies(length_pref)
+    if safety_flag:
+        reply_short += "\n\n혹시 위험하다고 느껴지면, 가까운 사람이나 전문 상담/상담센터에 바로 연락하자."
+        reply_normal += "\n\n지금이 힘든 만큼 도움을 받는 게 정말 중요해. 가까운 사람에게 이야기하거나, 전문 상담/상담센터에 연락해줘."
 
-    else:
-        reply_short, reply_normal = _fallback_replies(length_pref)
+    out = DiaryReplyOutput(
+        reply_short=reply_short,
+        reply_normal=reply_normal,
+        safety_flag=safety_flag,
+        flags=flags,
+        analysis=analysis,
+    )
 
-    return {
-        "reply_short": reply_short,
-        "reply_normal": reply_normal,
-        "safety_flag": safety_flag,
-        "flags": {"danger_words": safety_flag},
-        "analysis": analysis,
-    }
+    # 5) 로그 저장
+    if db:
+        latency_ms = int((time.time() - t0) * 1000)
+        save_diary_log(
+            db,
+            user_id=user_id,
+            preset_used=preset,
+            mood_hint=mood,
+            text=payload.text,
+            reply_short=out.reply_short,
+            reply_normal=out.reply_normal,
+            analysis=out.analysis.model_dump(),
+            safety_flag=out.safety_flag,
+            flags=out.flags,
+            latency_ms=latency_ms,
+        )
 
-
-def _fallback_replies(length_pref: str):
-    base = "오늘 많이 버거웠겠어요. 잠깐 쉬어가며 자신을 돌봐주는 것도 괜찮아요 🌿"
-    r_short = r_normal = None
-    if length_pref in ("short", "both"):
-        r_short = "오늘도 수고 많았어요. 잠깐 쉬며 마음을 다독여 주세요."
-    if length_pref in ("normal", "both"):
-        r_normal = base + " 내일의 우선순위를 가볍게만 정해보면 마음이 한결 가벼워질 거예요."
-    return r_short, r_normal
-
-
-def _empty_response():
-    return {
-        "reply_short": None,
-        "reply_normal": None,
-        "safety_flag": False,
-        "flags": {},
-        "analysis": {"valence": None, "emotions": [], "keywords": [], "summary": ""},
-    }
+    return out

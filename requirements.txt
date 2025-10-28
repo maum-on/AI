@@ -2,7 +2,9 @@ fastapi
 uvicorn[standard]
 pydantic
 pyyaml
+sqlalchemy
 # 쓰는 LLM SDK들 (openai, upstage 등)
 pytest
 httpx
 pytest-cov
+openai

@@ -5,7 +5,7 @@ class DiaryInput(BaseModel):
     text: str = Field(..., min_length=2, max_length=8000)
     user_id: Optional[str] = None
     date: Optional[str] = None
-    meta: Dict = Field(default_factory=dict)
+    meta: Dict = Field(default_factory=dict)  # e.g., {"preset":"warm","mood":"불안"}
 
 class AnalysisResult(BaseModel):
     valence: str

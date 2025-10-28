@@ -1,36 +1,30 @@
-# FastAPI 서버 (참조 구현)
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from .middleware import RequestContextMiddleware, ApiKeyMiddleware
+from .routers import diary, user
 
-# api/main.py
-from fastapi import FastAPI, Depends, HTTPException
-from api.deps import get_settings, get_pipeline
-from api.models import DiaryRequest, DiaryReplyResponse
+def create_app() -> FastAPI:
+    app = FastAPI(title="Diary Replier", version="0.1.0")
 
-app = FastAPI(title="Diary Replier API", version="1.0.0")
+    # 미들웨어 등록
+    app.add_middleware(ApiKeyMiddleware)
+    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],            # 배포 시 도메인으로 제한 권장
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-@app.get("/healthz")
-def healthz():
-    return {"status": "ok"}
+    # 라우터 등록
+    app.include_router(diary.router)
+    app.include_router(user.router)
 
-@app.get("/version")
-def version(settings=Depends(get_settings)):
-    cfg = settings.cfg or {}
-    return {"version": app.version, "model": cfg.get("model_name", "unknown"), "config_loaded": bool(cfg)}
+    # 헬스체크
+    @app.get("/health")
+    def health():
+        return {"ok": True}
 
-# 이 엔드포인트가 반드시 존재해야 tests/test_api.py 통과
-# create_reply 내부
+    return app
 
-@app.post("/v1/diary/reply", response_model=DiaryReplyResponse)
-def create_reply(payload: DiaryRequest, pipeline=Depends(get_pipeline)):
-    if not payload.text or not payload.text.strip():
-        raise HTTPException(status_code=400, detail="text is empty")
-    try:
-        out = pipeline(payload)
-    except Exception as e:
-        import traceback; traceback.print_exc()
-        raise HTTPException(500, detail=f"pipeline error: {e}")
-    return out  # Pydantic이 자동 캐스팅
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("api.main:app", host="127.0.0.1", port=8000, reload=True)
+app = create_app()
