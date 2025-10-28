@@ -1,0 +1,18 @@
+# 환경변수 파일
+.env
+.env.*  # .env.local, .env.development 등 변형들도 차단
+
+# Python 프로젝트인 경우
+__pycache__/
+*.pyc
+
+# Node 프로젝트일 경우
+node_modules/
+
+# 가상환경 디렉토리
+venv/
+.virtualenv/
+
+# IDE 설정 파일
+.idea/
+.vscode/

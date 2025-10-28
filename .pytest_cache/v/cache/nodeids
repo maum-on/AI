@@ -1,0 +1,13 @@
+[
+  "tests/test_analyzer.py::test_analyze_diary_basic",
+  "tests/test_api.py::test_diary_reply_endpoint",
+  "tests/test_api.py::test_healthz",
+  "tests/test_api.py::test_version",
+  "tests/test_generator.py::test_generate_reply_returns_text",
+  "tests/test_guard.py::test_detect_crisis_negative",
+  "tests/test_guard.py::test_detect_crisis_positive",
+  "tests/test_guard.py::test_mask_pii_email",
+  "tests/test_guard.py::test_mask_pii_phone",
+  "tests/test_pipeline.py::test_pipeline_crisis_flow",
+  "tests/test_pipeline.py::test_pipeline_normal_flow"
+]

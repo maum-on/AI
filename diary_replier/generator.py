@@ -1,30 +1,43 @@
-# ⬇ 기존: llm = OpenAILLMClient()  ← 이 줄 삭제
-from diary_replier.llm_providers.openai_client import OpenAILLMClient
+# diary_replier/generator.py
+from typing import Optional, Dict, Any, List
 
-_llm = None
+# ❌ 상단 정적 임포트 금지:
+# from diary_replier.llm_providers.openai_client import OpenAILLMClient
+
 def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = OpenAILLMClient()
-    return _llm
+    # ✅ 지연 임포트로 순환 차단
+    from diary_replier.llm_providers.openai_client import OpenAILLMClient
+    return OpenAILLMClient()
 
-def generate_reply(text: str, analysis: dict, style: str = "normal") -> str:
-    sys = "너는 따뜻하고 예의 바른 한국어 상담 파트너야."
-    ctx = f"""감정 극성: {analysis.get('valence')}
-세부 감정: {', '.join(analysis.get('emotions', []))}
-키워드: {', '.join(analysis.get('keywords', []))}
-하루 요약: {analysis.get('summary')}"""
+def generate_reply(text: str, options: Optional[Dict[str, Any]] = None, llm=None) -> Dict[str, Any]:
+    """
+    일기에 대한 답장을 생성하는 최소 예시.
+    tests/conftest.py에서 get_llm을 DummyLLMClient로 바꾸면 그대로 대체됨.
+    """
+    if llm is None:
+        llm = get_llm()
 
-    length_hint = "2~3문장" if style == "short" else "5~7문장"
+    length = ((options or {}).get("length") or "both").lower()
 
-    usr = f"""아래 일기에 대해 {length_hint}으로 답장만 작성해.
+    system = "너는 일기에 따뜻하게 답장하는 친구야. 과장 금지, 한국어, 제안형 조언."
+    msgs_short = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"아래 일기에 한 문장으로 짧게 답장해줘.\n\n{text}"},
+    ]
+    msgs_normal = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"아래 일기에 2~4문장으로 부드럽게 답장해줘.\n\n{text}"},
+    ]
 
-일기:
-{text}
+    reply_short = None
+    reply_normal = None
 
-규칙:
-- 공감으로 시작
-- 일기의 구체적 디테일 1~2개 반영
-- 존댓말
-"""
-    return get_llm().call(sys, ctx + "\n" + usr, temperature=0.7, max_tokens=400)
+    if length in ("short", "both"):
+        reply_short = llm.chat(msgs_short, temperature=0.6)
+    if length in ("normal", "both"):
+        reply_normal = llm.chat(msgs_normal, temperature=0.6)
+
+    return {
+        "reply_short": reply_short,
+        "reply_normal": reply_normal,
+    }
