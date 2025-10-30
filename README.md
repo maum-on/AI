@@ -17,19 +17,19 @@ AI 기반 아침 응원 멘트 자동 생성 서비스
 
 ## ⚙️ 실행 방법
 
-## 1️⃣ 환경 설정
-### 가상환경 생성
+### 1️⃣ 환경 설정
+#### 가상환경 생성
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 ```
 
-### 필수 라이브러리 설치
+#### 필수 라이브러리 설치
 ```bash
 pip install -r requirements.txt
 ```
 
-### 환경 변수 (.env)
+#### 환경 변수 (.env)
 
 프로젝트 루트에 .env 파일 생성:
 ```bash
@@ -40,7 +40,7 @@ TTS_VOICE=shimmer
 TTS_FORMAT=mp3
 ```
 
-## 2️⃣ 데이터 준비
+### 2️⃣ 데이터 준비
 
 아래 경로에 어제 날짜 형식의 일기 파일을 추가합니다.
 ```bash
@@ -52,25 +52,25 @@ data/diaries/test_user_2025-10-31.txt
 어제는 친구와 산책하며 기분을 전환했다. 오늘은 더 활기차게 보내고 싶다!
 ```
 
-## 3️⃣ 서버 실행
+### 3️⃣ 서버 실행
 ```bash
 uvicorn apps.morning_boost.main:app --reload --port 8010
 ```
 
-## 4️⃣ API 테스트
-### ✅ 1. 텍스트 생성 (dryrun)
+### 4️⃣ API 테스트
+#### ✅ 1. 텍스트 생성 (dryrun)
 ```arduino
 http://127.0.0.1:8010/boost?user_id=test_user&dryrun=1
 ```
 > → GPT가 생성한 응원 멘트 텍스트 반환
 
-### ✅ 2. 음성 생성 (TTS)
+#### ✅ 2. 음성 생성 (TTS)
 ```arduino
 http://127.0.0.1:8010/boost?user_id=test_user
 ```
 > → outputs/audio/ 폴더에 mp3 파일로 저장됨
 
-### ✅ 3. 상태 확인
+#### ✅ 3. 상태 확인
 ```arduino
 http://127.0.0.1:8010/health
 ```
