@@ -116,3 +116,24 @@ def generate_pair(text: str, mood: str | None, preset: str) -> tuple[str, str]:
         # 파싱 실패 시 최소한의 폴백 (둘 다 한 본문으로 반환)
         txt = res.output_text.strip()
         return txt[:120], txt
+
+def generate_reply(prompt: str) -> str:
+    """
+    Chat-to-Diary 기능에서 사용하는 GPT 텍스트 생성기
+    """
+    response = _client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "너는 따뜻하게 자연스럽게 글을 생성하는 어시스턴트야."},
+            {"role": "user", "content": prompt},
+        ]
+    )
+    return response.choices[0].message.content.strip()
+
+def get_llm():
+    """
+    Monkeypatch에서 DummyLLMClient로 교체하기 위해 필요한 자리만들기용 함수.
+    실제 운영에서는 generator 내부의 _client를 직접 사용한다.
+    """
+    raise NotImplementedError("get_llm is only used during tests.")
+

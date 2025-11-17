@@ -1,0 +1,79 @@
+{
+  "title": "스마트캡스톤디자인 팀플",
+  "participants": [
+    {
+      "name": "한태림"
+    },
+    {
+      "name": "가톨릭대 23 캡스톤 김가은"
+    },
+    {
+      "name": "가톨릭대 23 캡스톤 최효비"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "가톨릭대 23 캡스톤 김가은",
+      "timestamp_ms": 1762747380000,
+      "content": "넵 괜찮습니다!",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "한태림",
+      "timestamp_ms": 1762747260000,
+      "content": "그 dm 테스트용을 내보내려고 하는데 이게 하루가 지나야 내보내기가 되나봐요 내일 보내드려도 괜찮을까요?",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "한태림",
+      "timestamp_ms": 1762747080000,
+      "content": "저 오늘 일정도 있어서 회의 필요하면 다른 날 잡아야할 것 같아요!",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "한태림",
+      "timestamp_ms": 1762747020000,
+      "content": "넵!",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "가톨릭대 23 캡스톤 김가은",
+      "timestamp_ms": 1762747020000,
+      "content": "태림님 저희 오늘 면담 끝나고 회의 필요 없는 거겠죠?",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "가톨릭대 23 캡스톤 김가은",
+      "timestamp_ms": 1762737720000,
+      "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ넵 감사합니다!",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "한태림",
+      "timestamp_ms": 1762737660000,
+      "content": "전에 너무 제 개인적인 대화만 있어서...",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "한태림",
+      "timestamp_ms": 1762737660000,
+      "content": "예시 파일 오늘 중으로 보내드릴게요",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "가톨릭대 23 캡스톤 김가은",
+      "timestamp_ms": 1762737060000,
+      "content": "아니면 제가 그냥 디엠 아무거나 쓰면 되는건가요?",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "가톨릭대 23 캡스톤 김가은",
+      "timestamp_ms": 1762737060000,
+      "content": "태림님 혹시 인스타 디엠 예시 파일 있을까요?",
+      "is_geoblocked_for_viewer": false
+    }
+  ],
+  "is_still_participant": true,
+  "thread_path": "inbox/smart_capstone_team",
+  "magic_words": []
+}

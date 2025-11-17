@@ -58,3 +58,9 @@ def analyze(text: str) -> AnalysisResult:
         keywords=_extract_keywords(text),
         summary=_make_summary(text),
     )
+def get_llm():
+    """
+    Monkeypatch에서 DummyLLMClient로 교체하기 위해 필요한 자리만들기용 함수.
+    실제 운영에서는 이 함수가 호출되지 않는다.
+    """
+    raise NotImplementedError("get_llm is only used during tests.")

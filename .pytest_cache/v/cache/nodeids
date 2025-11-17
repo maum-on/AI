@@ -3,6 +3,7 @@
   "tests/test_api.py::test_diary_reply_endpoint",
   "tests/test_api.py::test_healthz",
   "tests/test_api.py::test_version",
+  "tests/test_chat_to_diary.py::test_chat_to_diary_json",
   "tests/test_generator.py::test_generate_reply_returns_text",
   "tests/test_guard.py::test_detect_crisis_negative",
   "tests/test_guard.py::test_detect_crisis_positive",
