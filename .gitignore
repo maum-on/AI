@@ -1,60 +1,70 @@
-# --- 가상환경 ---
-.venv/
-venv/
-env/
-ENV/
-*.pyc
+# -----------------------
+# Python
+# -----------------------
 __pycache__/
+*.pyc
 *.pyo
 *.pyd
 *.pdb
+*.pkl
 
-# --- IDE / 에디터 설정 ---
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Poetry
+poetry.lock
+
+# -----------------------
+# FastAPI / Uvicorn
+# -----------------------
+*.log
+
+# -----------------------
+# Project files
+# -----------------------
+.env
+.env.*
+*.env
+
+# Data / TTS output
+data/
+**/data/
+tmp_*.mp3
+*.mp3
+*.wav
+
+# -----------------------
+# IDE / Editor
+# -----------------------
+# PyCharm
 .idea/
-.vscode/
-*.swp
-*.swo
+*.iml
 
-# --- OS / 임시 파일 ---
+# VSCode
+.vscode/
+
+# -----------------------
+# OS
+# -----------------------
 .DS_Store
 Thumbs.db
 
-# --- 로그 / 캐시 ---
-*.log
-*.tmp
-*.bak
-*.sqlite3
-*.db
-*.pid
-*.lock
+# -----------------------
+# Node (혹시 프론트 들어와도 대비)
+# -----------------------
+node_modules/
 
-# --- 환경 변수 / 비밀 키 ---
-.env
-.env.*
-*.key
-*.pem
-*.crt
-*.json
-secrets/
-
-# --- 데이터 / 모델 / 출력 ---
-data/
-outputs/
-assets/
-!assets/sfx_intro.mp3   # 효과음은 유지하고 싶으면 이렇게 예외 처리
-
-# --- 테스트 / 빌드 ---
+# -----------------------
+# Build / dist
+# -----------------------
 dist/
 build/
+
+# -----------------------
+# Python packaging
+# -----------------------
 *.egg-info/
-__pycache__/
-.coverage
-.pytest_cache/
-
-# --- OS별 ---
-ehthumbs.db
-Icon?
-desktop.ini
-
-# --- 기타 ---
-*.ipynb_checkpoints/
+.eggs/

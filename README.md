@@ -33,12 +33,34 @@ pip install -r requirements.txt
 
 프로젝트 루트에 .env 파일 생성:
 ```bash
-OPENAI_API_KEY=sk-...             # 🔑 본인 OpenAI 키
-OPENAI_MODEL=gpt-4o-mini
-TTS_MODEL=gpt-4o-mini-tts
-TTS_VOICE=shimmer
+OPENAI_API_KEY=sk-...             # 🔑 본인의 OpenAI Secret Key
+OPENAI_MODEL=gpt-4o-mini-tts
+TTS_VOICE=alloy
 TTS_FORMAT=mp3
+
+# 백엔드(Spring Boot) API 엔드포인트
+BACKEND_URL=
 ```
+#### PyCharm 환경변수 적용 (중요!)
+PyCharm은 .env 파일을 자동으로 읽지 않음 → 반드시 설정 필요
+
+✔ 방법
+
+Run → Edit Configurations
+
+1. 실행 구성 선택 (예: main)
+
+2. 아래쪽 Environment variables 섹션
+
+3. “.env 파일 경로” 버튼 클릭
+
+4. 이 경로 입력:
+```bash
+C:\Users\...\.env
+```
+5. OK → Run 실행
+
+이제 OPENAI_API_KEY, BACKEND_URL 등이 정상적으로 로드
 
 ### 2️⃣ 데이터 준비
 
@@ -82,21 +104,22 @@ morning_boost/
 │
 ├─ apps/
 │  └─ morning_boost/
-│     ├─ main.py              # FastAPI 서버 엔트리포인트
-│     ├─ prompt_engine.py     # GPT 프롬프트 생성 및 텍스트 생성
-│     ├─ tts_engine.py        # OpenAI TTS 호출
-│     └─ utils.py             # 파일 입출력 및 경로 관리
+│     ├─ main.py              # FastAPI 서버
+│     ├─ prompt_engine.py     # 프롬프트 생성
+│     ├─ tts_engine.py        # TTS 생성 로직
+│     └─ utils.py             # 백엔드 연동, 파일 경로 등
 │
 ├─ data/
-│  └─ diaries/                # 사용자 일기 텍스트 파일
+│  └─ morning_boost/          # 생성된 mp3 저장
 │
-├─ outputs/
-│  └─ audio/                  # 생성된 mp3 파일 저장 경로
+├─ configs/
+│  └─ morning_boost.yaml      # 설정 파일 (선택)
 │
-├─ .env                       # 환경 변수 파일 (gitignore)
+├─ .env                       # 환경 변수 파일
 ├─ .gitignore
 ├─ requirements.txt
 └─ README.md
+
 ```
 
 ## 💡 기술 스택
@@ -136,3 +159,5 @@ morning_boost/
 **TTS 결과**
 
 >outputs/audio/test_user_morning_boost_YYYYMMDD_HHMMSS.mp3
+
+음성 파일은 data/morning_boost/ 아래 mp3로 생성됩니다.
