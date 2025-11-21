@@ -5,6 +5,7 @@ load_dotenv()
 
 from .middleware import RequestContextMiddleware, ApiKeyMiddleware
 from .routers import diary, user
+from api.routers.picture_diary_router import router as picture_diary_router
 
 # ⬇️ 새로 만든 chat-to-diary 라우터 import 추가
 from src.routers.chat_to_diary import router as chat_diary_router
@@ -40,7 +41,7 @@ def create_app() -> FastAPI:
     # prefix="/chat-diary"는 router 내부에 이미 있음
     # (src/routers/chat_to_diary.py → APIRouter(prefix="/chat-diary"))
     app.include_router(chat_diary_router)
-
+    app.include_router(picture_diary_router.router)
     # -------------------------
     # 🩺 Health Check
     # -------------------------
