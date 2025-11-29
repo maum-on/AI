@@ -1,8 +1,14 @@
 from src.schemas.chat import ChatThread
 
 def build_prompt_for_diary(thread: ChatThread) -> str:
+    # 대화 정렬
     messages = sorted(thread.messages, key=lambda x: x.ts_utc)
+
+    # "플레이어: 내용" 형태로 변환
     lines = [f"{m.sender}: {m.text}" for m in messages if m.text]
+
+    # 여기서 chat_text를 반드시 만들어줘야 함!!
+    chat_text = "\n".join(lines)
 
     return (
         "아래는 메신저 대화 내용입니다. 이 대화를 보고 오늘 하루를 대표하는 "
