@@ -24,26 +24,39 @@ from src.routers.chat_to_diary import router as chat_diary_router
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Diary Replier + 그림일기 DEV",
-        version="0.1.0"
+        version="0.1.0",
     )
 
     # ------------------------------------
-    # ⚙️ Middleware
+    # ⚙️ CORS 설정
     # ------------------------------------
-    app.add_middleware(ApiKeyMiddleware)
-    app.add_middleware(RequestContextMiddleware)
+    # 운영 단계: 필요한 Origin만 명시
+    origins = [
+        "http://54.79.20.218:8000",   # 👉 AI 서버 주소 (필수)
+        "http://13.209.35.235:8080",  # 👉 Spring 백엔드 주소 (필수)
+        "http://localhost:3000",      # 👉 로컬 개발용 (필요 시)
+    ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # 배포 시 특정 도메인으로 제한 가능
+        allow_origins=origins,
+        allow_credentials=True,   # 도메인을 특정했으므로 credentials 허용 가능
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+    # ------------------------------------
+    # ⚙️ 기타 미들웨어
+    # ------------------------------------
+    app.add_middleware(ApiKeyMiddleware)
+    app.add_middleware(RequestContextMiddleware)
 
     # ------------------------------------
     # 🗂 기존 서비스 라우터
     # ------------------------------------
     app.include_router(diary.router, prefix="/diary")
-    app.include_router(user.router,  prefix="/user")
+    app.include_router(user.router, prefix="/user")
 
     # ------------------------------------
     # ✨ Chat-to-Diary
@@ -52,8 +65,8 @@ def create_app() -> FastAPI:
     app.include_router(chat_diary_router)
 
     # ------------------------------------
-    # ✨ Picture-Diary (이번에 만든 기능)
-    # prefix는 picture_diary_router 내부에 이미 선언됨
+    # ✨ Picture-Diary
+    # (router 내부에 prefix 선언되어 있음)
     # ------------------------------------
     app.include_router(picture_diary_router)
 
@@ -69,6 +82,5 @@ def create_app() -> FastAPI:
 
 # ------------------------------------
 # ⚡ FastAPI 실행 객체
-# (배포/로컬 실행 모두 이 객체 사용)
 # ------------------------------------
 app = create_app()
