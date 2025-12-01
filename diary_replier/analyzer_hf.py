@@ -14,7 +14,7 @@ _DEFAULT_MAP = {
     "angry": "분노", "anger": "분노",
     "fear": "불안", "anxiety": "불안",
     "tired": "피곤", "fatigue": "피곤",
-    "neutral": "중립", "others": "중립"
+    "empty": "중립", "others": "중립"
 }
 
 _pipe = None
