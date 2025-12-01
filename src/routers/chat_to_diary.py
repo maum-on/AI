@@ -21,6 +21,6 @@ async def chat_to_diary(file: UploadFile = File(...), me_hint: str | None = Form
         thread = parse_chat(payload, me_hint)
         prompt = build_prompt_for_diary(thread)
         diary = generate_reply(prompt)
-        return {"diary": diary, "prompt_used": prompt}
+        return {"diary": diary}
     except Exception as e:
         raise HTTPException(400, str(e))
