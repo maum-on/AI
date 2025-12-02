@@ -4,10 +4,12 @@ from pydantic import BaseModel, HttpUrl
 class PictureDiaryRequest(BaseModel):
     image_url: HttpUrl  # 백엔드에서 넘겨주는 그림 이미지 URL
 
+
 class PictureDiaryResult(BaseModel):
-    type: str           # 예: "모험가형", "감성형" 같은 심리 타입
-    description: str    # 결과 설명
-    extra_tip: str      # 추가 코멘트
+    emotion: str        # "HAPPY", "SAD", "ANGRY", "SHY", "EMPTY"
+    reason: str         # 감정 판단 이유/짧은 설명
+    tip: str            # 감정에 맞는 추가 코멘트
+
 
 class PictureDiaryResponse(BaseModel):
     result: PictureDiaryResult

@@ -26,7 +26,7 @@ def main():
                 e2 = ""
             if t and r:
                 w.writerow([t, r, v or "", e2, s or ""])
-    print("✅ export:", out_path)
+    print("export:", out_path)
 
 if __name__ == "__main__":
     main()

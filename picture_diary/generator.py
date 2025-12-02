@@ -1,30 +1,60 @@
 # picture_diary/generator.py
+
 from picture_diary.schemas import PictureDiaryResult
+
+# 5가지 감정 라벨
+PICTURE_EMOTION_LABELS = ["HAPPY", "SAD", "ANGRY", "SHY", "EMPTY"]
 
 def generate_result(style: str) -> PictureDiaryResult:
     """
-    style 키워드에 기반한 심리 결과 생성 (임시 rule-based)
+    그림 style 기반으로 5가지 감정(HAPPY, SAD, ANGRY, SHY, EMPTY) 중 하나를 매핑.
+    이전의 '모험가형/미니멀형' 등 성격 타입은 완전히 제거.
     """
 
-    mapping = {
-        "bright": ("낙천가형", "밝은 색감을 좋아하는 당신은 긍정 에너지가 강한 타입!",
-                   "오늘도 좋은 기운이 주변을 채울 거예요."),
-        "dark": ("사색가형", "어두운 톤에서 안정감을 느끼는 당신은 깊은 생각을 즐기는 스타일.",
-                 "하루에 10분 정도는 산책하며 머리를 비워보세요."),
-        "simple": ("미니멀형", "단순함을 좋아하는 당신은 효율과 명확함을 중시하는 성향!",
-                   "내일은 잡동사니 하나만 정리해보는 건 어떨까요?"),
-        "complex": ("탐험가형", "복잡하고 다채로운 이미지를 좋아하는 당신은 창의적 탐구심이 높아요.",
-                    "새로운 아이디어를 적어보면 좋은 날이에요."),
-        "cute": ("애정가형", "귀여운 요소가 있는 그림에 끌리는 당신은 따뜻함을 중요하게 여겨요.",
-                 "지인에게 짧은 안부 한 마디 전해보면 좋겠어요."),
-        "dynamic": ("모험가형", "움직임과 에너지 있는 그림을 좋아하는 당신은 적극적인 타입!",
-                     "오늘 작은 도전을 하나 실행해보세요.")
+    # style → emotion 매핑 (원하면 더 정교하게 튜닝 가능)
+    style_to_emotion = {
+        "bright": "HAPPY",
+        "cute": "HAPPY",
+
+        "dark": "SAD",
+
+        "dynamic": "ANGRY",      # 강렬한 움직임 → 에너지/분노 계열로 해석
+        "complex": "ANGRY",      # 복잡하고 강한 대비 → 긴장/압도감 → ANGRY 계열 처리
+
+        "simple": "SHY",         # 단정하고 담백한 구성 → 조심스러움/소극적 에너지
     }
 
-    type_, desc, tip = mapping.get(style, (
-        "자유로운 영혼형",
-        "당신은 틀에 얽매이지 않는 자유로운 성향!",
-        "오늘은 직감이 좋은 판단을 도와줄 거예요."
-    ))
+    # fallback: 감정이 명확하지 않은 그림 → EMPTY
+    emotion = style_to_emotion.get(style, "EMPTY")
 
-    return PictureDiaryResult(type=type_, description=desc, extra_tip=tip)
+    # 감정별 기본 reason & tip
+    emotion_reason_tip = {
+        "HAPPY": (
+            "밝고 긍정적인 분위기가 느껴져요.",
+            "오늘의 좋은 에너지를 오래 간직해보세요!"
+        ),
+        "SAD": (
+            "조금은 차분하고 감성적인 느낌이에요.",
+            "감정이 쌓이지 않도록 자신을 가볍게 돌봐주세요."
+        ),
+        "ANGRY": (
+            "강렬한 색감이나 움직임에서 에너지가 느껴져요.",
+            "이 에너지를 생산적인 방향으로 사용해보면 도움이 돼요."
+        ),
+        "SHY": (
+            "섬세하고 조용한 분위기가 느껴져요.",
+            "천천히 당신만의 속도로 하루를 걸어가도 괜찮아요."
+        ),
+        "EMPTY": (
+            "특정 감정이 강하게 드러나지 않는 그림이에요.",
+            "자유롭게 오늘 기분을 가볍게 표현해보는 건 어떨까요?"
+        ),
+    }
+
+    reason, tip = emotion_reason_tip[emotion]
+
+    return PictureDiaryResult(
+        emotion=emotion,
+        reason=reason,
+        tip=tip,
+    )
