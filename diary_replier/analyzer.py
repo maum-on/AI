@@ -1,72 +1,92 @@
+# diary_replier/analyzer.py
+
 import re
 from collections import Counter
-from typing import List, Tuple
+from typing import List
+
 from .schemas import AnalysisResult
 from .analyzer_hf import available as hf_available, predict_emotions as hf_predict
 
 # -----------------------------
-# 감정 키워드 사전
+# 감정 키워드 사전 (영문 코드 5개로 통일)
 # -----------------------------
-EMO_LEX = {
-    "불안": ["불안", "초조", "걱정", "긴장", "두려", "떨려"],
-    "슬픔": ["슬프", "우울", "눈물", "상실", "허무", "외롭"],
-    "분노": ["화나", "짜증", "열받", "억울", "분노"],
-    "피곤": ["피곤", "지침", "번아웃", "과로", "기진"],
-    "기쁨": ["행복", "기쁨", "뿌듯", "즐겁", "신남", "설렘"],
+# happy, sad, angry, shy, empty 중에서만 나오도록 매핑
+EMO_CODE_LEX = {
+    "happy": [
+        "행복", "기쁨", "기분 좋", "뿌듯", "즐겁", "신나", "신남", "설렘", "재밌", "좋았",
+    ],
+    "sad": [
+        "슬프", "우울", "눈물", "상실", "허무", "외롭", "서운", "속상",
+    ],
+    "angry": [
+        "화나", "짜증", "열받", "분노", "억울", "빡치", "화가", "성나",
+    ],
+    "shy": [
+        "부끄", "쑥스", "민망", "머쓱",
+    ],
+    "empty": [
+        "무기력", "멍하", "공허", "그냥그냥", "심심", "피곤", "지침", "번아웃", "과로",
+    ],
 }
 
-# 긍정/부정 판단용 단어들
+# 긍정/부정 판단용 단어들 (valence 용)
 POS_WORDS = ["좋았", "만족", "성공", "칭찬", "뿌듯", "행복", "기쁨", "즐겁", "설렘"]
 NEG_WORDS = ["힘들", "실수", "후회", "불안", "우울", "짜증", "화나", "좌절", "실망", "억울"]
 
-# -----------------------------
-# 키워드 추출
-# -----------------------------
-def _extract_keywords(text: str, topk: int = 5) -> List[str]:
-    tokens = re.findall(r"[가-힣a-zA-Z0-9]{2,}", text)
-    cnt = Counter(t.lower() for t in tokens)
-
-    stop = {"그리고", "하지만", "그러나", "그래서", "오늘", "정말", "조금", "내일", "약간"}
-    keywords = [w for w, _ in cnt.most_common() if w not in stop]
-    return keywords[:topk]
 
 # -----------------------------
-# 감정 감지
+# 감정 감지 → happy/sad/angry/shy/empty 코드 리스트로 반환
 # -----------------------------
 def _detect_emotions(text: str) -> List[str]:
-    found = []
-    for emo, kws in EMO_LEX.items():
+    """
+    텍스트에서 감정 키워드를 찾아서
+    happy/sad/angry/shy/empty 중 최대 3개까지 반환.
+    """
+    found: List[str] = []
+    for code, kws in EMO_CODE_LEX.items():
         if any(k in text for k in kws):
-            found.append(emo)
-    return found[:3] if found else []
+            found.append(code)
+
+    # 발견된 감정이 너무 많으면 앞에서부터 3개만
+    return found[:3]
+
 
 # -----------------------------
-# ★ normal을 거의 안 만들도록 수정된 valence 판단
+# valence 판단 (positive / negative / neutral)
 # -----------------------------
 def _judge_valence(text: str) -> str:
+    """
+    대략적인 분위기를 positive / negative / neutral 로만 나눔.
+    감정 코드(emotions)는 따로 happy/sad/... 로 리턴.
+    """
     pos = sum(text.count(w) for w in POS_WORDS)
     neg = sum(text.count(w) for w in NEG_WORDS)
 
-    # 1) 긍정/부정 키워드가 아예 없을 때만 neutral 가능
+    # 감정 코드도 참고해서 보정
+    emos = _detect_emotions(text)
+
+    # happy가 있으면 positive 쪽으로
+    if "happy" in emos:
+        return "positive"
+
+    # sad/angry가 있으면 negative 쪽으로
+    if any(e in emos for e in ["sad", "angry"]):
+        return "negative"
+
+    # empty만 있으면 애매하니 negative 쪽으로 보는 편
+    if "empty" in emos and not emos:
+        return "negative"
+
+    # 키워드 기반 기본 로직
     if pos == 0 and neg == 0:
-        emos = _detect_emotions(text)
-
-        # 기쁨 계열이 있으면 positive
-        if "기쁨" in emos:
-            return "positive"
-
-        # 슬픔/불안/분노/피곤 등 감정이 잡히면 negative
-        if emos:
-            return "negative"
-
-        # 진짜 아무 감정도 안 담긴 일기만 neutral
+        # 진짜 아무 단서도 없으면 neutral
         return "neutral"
 
-    # 2) 키워드가 있으면 neutral 거의 안 나오게
     if pos >= neg:
         return "positive"
     else:
         return "negative"
+
 
 # -----------------------------
 # 요약
@@ -83,28 +103,44 @@ def _make_summary(text: str) -> str:
             return f"{head} … {tail}"
     return head
 
+
 # -----------------------------
 # 메인 analyze 함수
 # -----------------------------
 def analyze(text: str) -> AnalysisResult:
+    """
+    diary-replier에서 사용하는 분석 함수.
+
+    - valence : "positive" / "negative" / "neutral"
+    - emotions: ["happy"] / ["sad"] / ... 중 1개 이상
+    - summary : 간단 요약
+    """
     valence = _judge_valence(text)
     emotions = _detect_emotions(text)
     summary = _make_summary(text)
 
-    # 감정이 하나도 안 잡혔으면 valence 기준으로 대충이라도 채워주기
+    # 🔥 감정이 하나도 안 잡힌 경우, valence를 기준으로 폴백
     if not emotions:
         if valence == "positive":
-            emotions = ["기쁨"]
+            emotions = ["happy"]
         elif valence == "negative":
-            emotions = ["슬픔"]
-        else:
-            emotions = []
+            emotions = ["sad"]
+        else:  # neutral
+            emotions = ["empty"]
+
+    # 혹시 모르니, emotions 안에 허용되지 않은 값이 있으면 정리
+    allowed = {"happy", "sad", "angry", "shy", "empty"}
+    emotions = [e for e in emotions if e in allowed]
+    if not emotions:
+        emotions = ["empty"]
 
     return AnalysisResult(
         valence=valence,
         emotions=emotions,
         summary=summary,
     )
+
+
 # -----------------------------
 # (테스트용) LLM Stub
 # -----------------------------
