@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from src.routers.chat_to_diary import router as chat_to_diary_router
 from diary_replier.schemas import DiaryInput, DiaryReplyOutput
 from diary_replier.pipeline import run_pipeline_with_logging
 from api.routers.deps import get_db, get_user_ctx, UserCtx
@@ -44,3 +45,5 @@ def list_logs(
         }
         for r in rows
     ]
+
+router.include_router(chat_to_diary_router)
