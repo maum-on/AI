@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, Query
-from src.routers.chat_to_diary import router as chat_to_diary_router
+from sqlalchemy.orm import Session
+
 from diary_replier.schemas import DiaryInput, DiaryReplyOutput
 from diary_replier.pipeline import run_pipeline_with_logging
 from api.routers.deps import get_db, get_user_ctx, UserCtx
-from sqlalchemy.orm import Session
 from api.models import DiaryLog
 
-router = APIRouter(prefix="/diary", tags=["diary"])
+router = APIRouter(
+    prefix="/diary",
+    tags=["diary"],
+)
+
 
 @router.post("/reply", response_model=DiaryReplyOutput)
 def make_reply(
@@ -18,8 +22,9 @@ def make_reply(
         body,
         user_id=user_ctx.user_id,
         preset_override=user_ctx.preset_override,
-        db=db
+        db=db,
     )
+
 
 @router.get("/logs")
 def list_logs(
@@ -30,6 +35,7 @@ def list_logs(
     q = db.query(DiaryLog).order_by(DiaryLog.id.desc())
     if user_id:
         q = q.filter(DiaryLog.user_id == user_id)
+
     rows = q.limit(limit).all()
     return [
         {
@@ -41,9 +47,7 @@ def list_logs(
             "valence": r.valence,
             "emotions": r.emotions,
             "keywords": r.keywords,
-            "summary": r.summary
+            "summary": r.summary,
         }
         for r in rows
     ]
-
-router.include_router(chat_to_diary_router)

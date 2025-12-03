@@ -1,15 +1,16 @@
 # picture_diary/schemas.py
+
+from typing import Literal
 from pydantic import BaseModel, HttpUrl
 
-class PictureDiaryRequest(BaseModel):
-    image_url: HttpUrl  # 백엔드에서 넘겨주는 그림 이미지 URL
+EmotionCode = Literal["happy", "sad", "angry", "shy", "empty"]
 
 
-class PictureDiaryResult(BaseModel):
-    emotion: str        # "HAPPY", "SAD", "ANGRY", "SHY", "EMPTY"
-    reason: str         # 감정 판단 이유/짧은 설명
-    tip: str            # 감정에 맞는 추가 코멘트
+class AnalyzeEmotionByUrlRequest(BaseModel):
+    image_url: HttpUrl
 
 
-class PictureDiaryResponse(BaseModel):
-    result: PictureDiaryResult
+class PictureEmotionResponse(BaseModel):
+    emotion: EmotionCode
+    emotion_ko: str
+    reason: str
