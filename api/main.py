@@ -1,3 +1,5 @@
+# api/main.py
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -31,9 +33,9 @@ def create_app() -> FastAPI:
     # ⚙️ CORS 설정
     # ------------------------------------
     origins = [
-        "http://54.79.20.218:8000",
-        "http://13.209.35.235:8080",
-        "http://localhost:3000",
+        "http://54.79.20.218:8000",   # 👉 AI 서버 주소
+        "http://13.209.35.235:8080",  # 👉 Spring 백엔드 주소
+        "http://localhost:3000",      # 👉 로컬 개발용
     ]
 
     app.add_middleware(
@@ -58,11 +60,13 @@ def create_app() -> FastAPI:
 
     # ------------------------------------
     # ✨ Chat-to-Diary
+    # (router 내부에 prefix="/chat-diary" 선언되어 있음)
     # ------------------------------------
     app.include_router(chat_diary_router)
 
     # ------------------------------------
     # ✨ Picture-Diary
+    # (router 내부에 prefix 선언되어 있음)
     # ------------------------------------
     app.include_router(picture_diary_router)
 
@@ -76,4 +80,7 @@ def create_app() -> FastAPI:
     return app
 
 
+# ------------------------------------
+# ⚡ FastAPI 실행 객체
+# ------------------------------------
 app = create_app()
