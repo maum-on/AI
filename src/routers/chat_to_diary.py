@@ -1,8 +1,7 @@
 # src/routers/chat_to_diary.py
 
-from fastapi import APIRouter, UploadFile, File, Form
-
-from src.services.ingest import ingest_chat_file
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import json
 
 router = APIRouter(prefix="/chat-diary", tags=["chat-diary"])
 
@@ -13,11 +12,16 @@ async def chat_to_diary(
     me_hint: str = Form(""),
 ):
     """
-    채팅 JSON 파일 + 내 이름 힌트(me_hint)를 받아서
-    정규화된 메시지 리스트를 돌려준다.
-
-    우선은 파싱이 잘 되는지 확인하는 용도로 사용.
+    디버깅용: 파일을 그대로 읽어서 key만 돌려준다.
+    ingest / parser 다 생략.
     """
-    messages = ingest_chat_file(file, me_hint)
-    # 나중에 여기서 diary 생성 서비스 붙이면 됨.
-    return {"messages": messages}
+    try:
+        raw = json.load(file.file)
+    except Exception as e:
+        # 여기서만 400을 던짐
+        raise HTTPException(status_code=400, detail=f"JSON 파싱 실패: {e}")
+
+    return {
+        "raw_keys": list(raw.keys()),
+        "me_hint": me_hint,
+    }
