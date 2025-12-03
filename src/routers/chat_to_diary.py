@@ -1,6 +1,6 @@
 # src/routers/chat_to_diary.py
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 
 import json
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
@@ -17,6 +17,9 @@ router = APIRouter(
 client = OpenAI()
 
 
+EmotionCode = Literal["happy", "sad", "angry", "shy", "empty"]
+
+
 class ChatToDiaryResponse(BaseModel):
     """
     chat-to-diary 엔드포인트의 최종 응답 스키마.
@@ -25,11 +28,13 @@ class ChatToDiaryResponse(BaseModel):
     - diary_text: 일기 본문 저장
     - title: 일기 제목으로 사용 (없으면 DM title 사용 가능)
     - used_me_hint: 프롬프트에 사용된 me_hint (백엔드에서 참고용)
+    - emotion: 일기를 대표하는 감정 1개 (happy/sad/angry/shy/empty)
     - keywords: 일기를 대표하는 키워드 5~7개
     """
     diary_text: str
     title: Optional[str] = None
     used_me_hint: Optional[str] = None
+    emotion: EmotionCode
     keywords: List[str]
 
 
@@ -59,14 +64,20 @@ def _build_conversation_text(messages: List[Dict[str, Any]]) -> str:
 def _build_system_prompt() -> str:
     """
     chat-to-diary용 시스템 프롬프트.
-    - 일기 텍스트 + 키워드 5~7개를 JSON으로 출력하도록 규정
+    - 일기 텍스트 + 감정(emotion) + 키워드 5~7개를 JSON으로 출력하도록 규정
     """
     return """
-당신은 인스타 DM 대화 내용을 기반으로 '일기'를 작성하고, 핵심 키워드를 추출하는 어시스턴트입니다.
+당신은 인스타 DM 대화 내용을 기반으로 '일기'를 작성하고, 핵심 감정과 키워드를 추출하는 어시스턴트입니다.
 
 [역할]
 1) 사용자가 보내는 DM 대화를 읽고 '나'의 시점에서 자연스러운 한국어 일기를 작성합니다.
-2) 일기 내용을 보고 핵심 키워드 5~7개를 뽑아 JSON 배열로 제공합니다.
+2) 일기 내용을 보고 핵심 감정(emotion) 1개를 고르고, 핵심 키워드 5~7개를 JSON 배열로 제공합니다.
+   - emotion 값은 반드시 다음 중 하나만 가능: "happy", "sad", "angry", "shy", "empty"
+     * happy  : 전반적으로 즐겁고 뿌듯하고 설레는 느낌
+     * sad    : 슬프고 서운하고 우울한 느낌
+     * angry  : 화나고 짜증나고 억울한 느낌
+     * shy    : 부끄럽고 쑥스러운 느낌
+     * empty  : 무기력, 공허, 그냥그런 느낌
    - 키워드는 1~2 단어(예: "팀프로젝트", "회의", "과제", "피곤", "응원")
    - 너무 긴 문장은 금지
    - 감정/주제/상황 중심으로 요약
@@ -90,9 +101,11 @@ def _build_system_prompt() -> str:
   "diary_text": "완성된 일기 본문을 여기에 작성합니다.",
   "title": "일기 제목으로 쓸만한 한 줄 (예: DM 제목이나 오늘의 키워드)",
   "used_me_hint": "모델이 참고한 me_hint 문자열 (없거나 비어 있으면 빈 문자열)",
+  "emotion": "happy 또는 sad 또는 angry 또는 shy 또는 empty 중 하나",
   "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"]
 }
 
+- emotion은 반드시 위에 지정된 다섯 값 중 하나여야 합니다.
 - keywords에는 반드시 5~7개의 문자열만 넣어야 합니다.
 - 키워드는 일기의 핵심 주제와 감정을 잘 대표해야 합니다.
 """.strip()
@@ -136,7 +149,7 @@ def _build_user_prompt(
 === 대화 끝 ===
 
 위 DM 대화 내용을 바탕으로, '나'의 입장에서 오늘 있었던 일을 한국어 일기 형식으로 정리해 주세요.
-그리고 일기 내용을 보고 핵심 키워드 5~7개를 함께 추출해 주세요.
+그리고 일기 내용을 보고 핵심 감정(emotion) 1개와 핵심 키워드 5~7개를 함께 추출해 주세요.
 반드시 이전에 설명한 JSON 형식으로만 출력해야 합니다.
 """.strip()
 
@@ -148,7 +161,7 @@ async def chat_to_diary(
 ):
     """
     인스타 DM 형식의 JSON 파일을 받아,
-    '나'의 입장에서 쓴 일기 텍스트와 키워드를 생성해 주는 엔드포인트.
+    '나'의 입장에서 쓴 일기 텍스트와 감정, 키워드를 생성해 주는 엔드포인트.
 
     - file: 인스타 DM 내보내기 JSON
       (예: { "title": "...", "participants": [...], "messages": [...] } 구조)
@@ -226,6 +239,18 @@ async def chat_to_diary(
     title = data.get("title") or raw.get("title") or None
     used_me_hint = data.get("used_me_hint") or me_hint or ""
 
+    # 감정 파싱
+    raw_emotion = data.get("emotion")
+    allowed = {"happy", "sad", "angry", "shy", "empty"}
+    if isinstance(raw_emotion, str):
+        emotion_str = raw_emotion.strip().lower()
+    else:
+        emotion_str = ""
+    if emotion_str not in allowed:
+        # 모델이 다른 값을 줬을 때는 안전하게 "empty"로 폴백
+        emotion_str = "empty"
+
+    # 키워드 파싱
     keywords = data.get("keywords")
     if not isinstance(keywords, list) or not keywords:
         raise HTTPException(
@@ -256,6 +281,7 @@ async def chat_to_diary(
         diary_text=diary_text,
         title=title,
         used_me_hint=used_me_hint,
+        emotion=emotion_str,      # 새로 추가된 감정 필드
         keywords=clean_keywords,
     )
 

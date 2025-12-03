@@ -89,16 +89,22 @@ def _make_summary(text: str) -> str:
 def analyze(text: str) -> AnalysisResult:
     valence = _judge_valence(text)
     emotions = _detect_emotions(text)
-    keywords = _extract_keywords(text)
     summary = _make_summary(text)
+
+    # 감정이 하나도 안 잡혔으면 valence 기준으로 대충이라도 채워주기
+    if not emotions:
+        if valence == "positive":
+            emotions = ["기쁨"]
+        elif valence == "negative":
+            emotions = ["슬픔"]
+        else:
+            emotions = []
 
     return AnalysisResult(
         valence=valence,
         emotions=emotions,
-        keywords=keywords,
         summary=summary,
     )
-
 # -----------------------------
 # (테스트용) LLM Stub
 # -----------------------------

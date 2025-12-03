@@ -5,12 +5,11 @@ class DiaryInput(BaseModel):
     text: str = Field(..., min_length=2, max_length=8000)
     user_id: Optional[str] = None
     date: Optional[str] = None
-    meta: Dict = Field(default_factory=dict)  # e.g., {"preset":"warm","mood":"불안"}
+    meta: Dict = Field(default_factory=dict)
 
 class AnalysisResult(BaseModel):
-    valence: str
-    emotions: List[str] = []
-    keywords: List[str] = []
+    valence: str                    # "happy" / "sad" / "angry" / "shy" / "empty"
+    emotions: List[str] = []        # 최소 1개라도 넣도록 analyzer에서 보정 필요
     summary: str = ""
 
 class DiaryReplyOutput(BaseModel):
