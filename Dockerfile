@@ -2,10 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# API용 가벼운 requirements만 사용
-COPY requirements-api.txt .
+COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements-api.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
