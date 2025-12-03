@@ -119,7 +119,7 @@ def analyze(text: str) -> AnalysisResult:
     emotions = _detect_emotions(text)
     summary = _make_summary(text)
 
-    # 🔥 감정이 하나도 안 잡힌 경우, valence를 기준으로 폴백
+    # 감정이 하나도 안 잡힌 경우, valence를 기준으로 폴백
     if not emotions:
         if valence == "positive":
             emotions = ["happy"]
