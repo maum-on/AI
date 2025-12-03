@@ -1,154 +1,107 @@
 # picture_diary/analyzer.py
 
-from typing import Dict
+from io import BytesIO
+from typing import Dict, Any, Tuple
 
-import cv2
-import numpy as np
-import requests
-from fer import FER
-
-# 전역으로 한 번만 로드 (CPU에서도 충분히 돌아감)
-_emotion_detector = FER(mtcnn=False)  # mtcnn=True 쓰면 mtcnn 설치 필요
+from PIL import Image, ImageStat
 
 
-def _download_image(image_url: str) -> np.ndarray:
+def _get_foreground_mask(img_gray: Image.Image, threshold: int = 230) -> Tuple[int, int, float, Tuple[float, float]]:
     """
-    URL에서 이미지를 받아와 OpenCV BGR 이미지로 디코딩.
+    단색 그림이라고 가정하고,
+    - 배경은 거의 흰색(밝은 값)
+    - 선/색이 있는 부분은 더 어둡다고 보고
+    foreground 마스크를 뽑는다.
+
+    반환:
+      - fg_count: 선/색이 있는 픽셀 수
+      - total: 전체 픽셀 수
+      - fill_ratio: 채움 비율 (0~1)
+      - center_of_mass: (cx, cy) 0~1 스케일 (좌→우, 상→하)
     """
-    resp = requests.get(image_url, timeout=5)
-    resp.raise_for_status()
-    data = np.frombuffer(resp.content, np.uint8)
-    img = cv2.imdecode(data, cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError("이미지를 디코딩할 수 없습니다.")
-    return img
+    # img_gray: 0(완전 검정) ~ 255(완전 흰색)
+    w, h = img_gray.size
+    pixels = img_gray.load()
+
+    fg_count = 0
+    sum_x = 0.0
+    sum_y = 0.0
+
+    for y in range(h):
+        for x in range(w):
+            v = pixels[x, y]
+            # threshold보다 어두우면 '그려진 부분'이라고 간주
+            if v < threshold:
+                fg_count += 1
+                sum_x += x
+                sum_y += y
+
+    total = w * h
+    if fg_count == 0:
+        return 0, total, 0.0, (0.5, 0.5)
+
+    fill_ratio = fg_count / total
+    cx = sum_x / fg_count / w   # 0 ~ 1
+    cy = sum_y / fg_count / h   # 0 ~ 1
+
+    return fg_count, total, fill_ratio, (cx, cy)
 
 
-def _analyze_expression(img: np.ndarray) -> str:
+def analyze_image_style(image_bytes: bytes) -> Dict[str, Any]:
     """
-    fer 라이브러리로 얼굴 표정 분석 후
-    smile / sad / angry / shy / neutral 로 매핑.
+    단색 그림(선 + 배경) 기준 스타일 분석기.
+
+    - 얼마나 많이 칠해졌는지 (fill_ratio) → 단순/복잡
+    - 그림의 중심이 위/아래/가운데인지 (center_of_mass) → 안정감
+    - 좌우 균형이 어떤지 → 치우침 여부
     """
+    # 1) 이미지 로드
+    img = Image.open(BytesIO(image_bytes)).convert("RGB")
+    w, h = img.size
 
-    # 전체 이미지에서 최상위 감정 하나만 본다
-    try:
-        result = _emotion_detector.top_emotion(img)  # (label, score) or None
-    except Exception:
-        return "neutral"
+    # 2) 그레이스케일로 변환 (밝기만 사용)
+    img_gray = img.convert("L")
 
-    if result is None:
-        return "neutral"
+    # 3) 선/색이 있는 부분(전경) 마스크 추출
+    fg_count, total, fill_ratio, (cx, cy) = _get_foreground_mask(img_gray, threshold=230)
 
-    label, score = result
-    if not label:
-        return "neutral"
-
-    label = label.lower()
-
-    # fer label → 우리가 쓰는 expression으로 매핑
-    if label in ("happy", "surprise"):
-        return "smile"
-    if label in ("sad", "disgust"):
-        return "sad"
-    if label in ("angry", "fear"):
-        return "angry"
-    if label == "neutral":
-        return "neutral"
-
-    # 알 수 없는 라벨은 일단 neutral 처리
-    return "neutral"
-
-
-def _analyze_color(img: np.ndarray) -> Dict[str, str]:
-    """
-    전체 밝기(V), 채도(S)를 보고
-    brightness / saturation 추정.
-    """
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
-
-    mean_v = float(np.mean(v))    # 밝기
-    mean_s = float(np.mean(s))    # 채도
-
-    # 밝기 구간
-    if mean_v >= 180:
-        brightness = "bright"
-    elif mean_v <= 80:
-        brightness = "dark"
+    # 4) 채움 비율 기반 스타일
+    if fill_ratio < 0.02:
+        density_label = "매우 미니멀한 그림 (여백이 거의 대부분)"
+    elif fill_ratio < 0.07:
+        density_label = "여백이 많은 단순한 그림"
+    elif fill_ratio < 0.15:
+        density_label = "적당히 채워진 그림"
+    elif fill_ratio < 0.30:
+        density_label = "꽤 풍부하게 채워진 그림"
     else:
-        brightness = "medium"
+        density_label = "화면을 가득 채운 강한 인상의 그림"
 
-    # 채도 구간
-    if mean_s >= 140:
-        saturation = "vivid"
-    elif mean_s <= 60:
-        saturation = "greyed"
+    # 5) 중심의 세로 위치 기반 설명 (위/가운데/아래)
+    if cy < 0.4:
+        vertical_label = "화면 위쪽에 요소가 모여 있어 가벼운 느낌"
+    elif cy > 0.6:
+        vertical_label = "화면 아래쪽에 무게가 실려 안정적인 느낌"
     else:
-        saturation = "soft"
+        vertical_label = "화면 중앙에 요소가 모여 균형 잡힌 느낌"
+
+    # 6) 좌우 치우침
+    if cx < 0.4:
+        horizontal_label = "왼쪽으로 살짝 치우친 구도"
+    elif cx > 0.6:
+        horizontal_label = "오른쪽으로 살짝 치우친 구도"
+    else:
+        horizontal_label = "좌우 균형이 비교적 잘 맞는 구도"
 
     return {
-        "brightness": brightness,
-        "saturation": saturation,
+        "width": w,
+        "height": h,
+        "fill_ratio": fill_ratio,         # 0~1, 얼마나 많이 그려졌는지
+        "center_of_mass": {
+            "x": cx,                     # 0(왼쪽) ~ 1(오른쪽)
+            "y": cy,                     # 0(위) ~ 1(아래)
+        },
+        "density_label": density_label,
+        "vertical_label": vertical_label,
+        "horizontal_label": horizontal_label,
     }
-
-
-def _analyze_lines_and_space(img: np.ndarray) -> Dict[str, str]:
-    """
-    에지 비율 + 흰 여백 비율로
-    line_energy / space_density 추정.
-    """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # 에지(윤곽선) 비율
-    edges = cv2.Canny(gray, 100, 200)
-    edge_ratio = float(np.count_nonzero(edges)) / edges.size
-
-    if edge_ratio < 0.03:
-        line_energy = "calm"
-    elif edge_ratio < 0.10:
-        line_energy = "dynamic"
-    else:
-        line_energy = "messy"
-
-    # 거의 흰색(배경) 픽셀 비율
-    _, thresh = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
-    white_ratio = float(np.count_nonzero(thresh)) / thresh.size
-
-    if white_ratio >= 0.7:
-        space_density = "minimal"
-    elif white_ratio <= 0.3:
-        space_density = "crowded"
-    else:
-        space_density = "balanced"
-
-    return {
-        "line_energy": line_energy,
-        "space_density": space_density,
-    }
-
-
-def analyze_image_style(image_url: str) -> Dict[str, str]:
-    """
-    최종 스타일 분석 함수.
-    return 예시:
-    {
-        "expression": "smile",
-        "brightness": "bright",
-        "saturation": "soft",
-        "line_energy": "calm",
-        "space_density": "balanced",
-    }
-    """
-    img = _download_image(image_url)
-
-    expression = _analyze_expression(img)
-    color_info = _analyze_color(img)
-    line_space_info = _analyze_lines_and_space(img)
-
-    style = {
-        "expression": expression,
-        **color_info,
-        **line_space_info,
-    }
-
-    return style

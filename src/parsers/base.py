@@ -1,31 +1,7 @@
 # src/parsers/base.py
 
-from enum import Enum
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
-
-
-class ChatPlatform(str, Enum):
-    GENERIC = "generic"
-    UNKNOWN = "unknown"
-
-
-def detect_platform(data: Dict[str, Any]) -> ChatPlatform:
-    """
-    JSON 구조 보고 '제법 그럴싸한 채팅 포맷'이면 GENERIC 으로 태운다.
-    title / participants / messages[...] 형식이면 거의 다 들어오게.
-    """
-    msgs = data.get("messages")
-    if isinstance(msgs, list) and len(msgs) > 0:
-        m0 = msgs[0]
-        has_sender = any(k in m0 for k in ["sender_name", "sender", "author", "from"])
-        has_text = any(k in m0 for k in ["content", "message", "text"])
-        has_ts = any(k in m0 for k in ["timestamp_ms", "timestamp", "created_at"])
-
-        if has_sender and has_text and has_ts:
-            return ChatPlatform.GENERIC
-
-    return ChatPlatform.UNKNOWN
+from typing import Dict, Any, List, Optional
 
 
 def _pick_first(d: Dict[str, Any], keys) -> Optional[Any]:
@@ -37,13 +13,14 @@ def _pick_first(d: Dict[str, Any], keys) -> Optional[Any]:
 
 def _normalize_timestamp(raw_ts: Any) -> Optional[str]:
     """
-    int(ms) / int(sec) / ISO string → ISO string
+    int(ms) / int(sec) / ISO string -> ISO string
     """
     if raw_ts is None:
         return None
 
+    # 숫자면 epoch 기준 시각
     if isinstance(raw_ts, (int, float)):
-        # 10^11 이상이면 ms, 아니면 seconds 로 취급
+        # 10^11 이상이면 ms, 아니면 초
         if raw_ts > 10 ** 11:
             ts_sec = raw_ts / 1000.0
         else:
@@ -51,9 +28,8 @@ def _normalize_timestamp(raw_ts: Any) -> Optional[str]:
         dt = datetime.fromtimestamp(ts_sec, tz=timezone.utc)
         return dt.isoformat()
 
+    # 문자열이면 ISO 파싱 시도, 안 되면 그냥 raw 반환
     if isinstance(raw_ts, str):
-        # 이미 iso 형식일 수도 있고, 아닐 수도 있지만
-        # 파싱 실패해도 그냥 raw string 리턴
         try:
             return datetime.fromisoformat(raw_ts).isoformat()
         except Exception:
@@ -63,45 +39,61 @@ def _normalize_timestamp(raw_ts: Any) -> Optional[str]:
 
 
 def normalize_generic_chat(
-    data: Dict[str, Any],
+    data: Any,
     me_hint: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    이런 식의 JSON을 전부 공통 포맷으로 변환:
+    인스타/DM처럼 생긴 JSON을 공통 포맷으로 정규화한다.
 
-    {
-      "title": "...",
-      "participants": [{ "name": "..." }, ...],
-      "messages": [
+    지원하는 최상위 형태:
+      1) {..., "messages": [...]}
+      2) [ { "messages": [...] }, ... ]  (리스트면 첫 번째 요소 사용)
+
+    각 message 예시:
+      {
+        "sender_name": "가톨릭대 23 캡스톤 김가은",
+        "timestamp_ms": 1762747380000,
+        "content": "넵 괜찮습니다!",
+        ...
+      }
+
+    반환 형식:
+      [
         {
+          "role": "me" | "other",
           "sender_name": "...",
-          "timestamp_ms": 1762747380000,
           "content": "...",
-          ...
+          "timestamp": "ISO-STRING",
         },
         ...
       ]
-    }
-
-    → 반환:
-
-    [
-      {
-        "role": "me" | "other",
-        "sender_name": "...",
-        "content": "...",
-        "timestamp": "ISO-STRING",
-      },
-      ...
-    ]
     """
+    # 만약 최상위가 리스트라면, 첫 번째 요소를 쓰자 (인스타 export가 이런 경우 있음)
+    if isinstance(data, list):
+        if not data:
+            return []
+        root = data[0]
+    elif isinstance(data, dict):
+        root = data
+    else:
+        # 전혀 예상치 못한 타입이면 그냥 빈 리스트
+        return []
+
     me_name = (me_hint or "").strip()
     messages_out: List[Dict[str, Any]] = []
 
-    for msg in data.get("messages", []):
+    raw_messages = root.get("messages")
+    if not isinstance(raw_messages, list):
+        return []
+
+    for msg in raw_messages:
+        if not isinstance(msg, dict):
+            continue
+
+        # 텍스트 내용
         content = _pick_first(msg, ["content", "message", "text"])
         if not content:
-            # 파일/이미지/시스템 메시지 등은 스킵
+            # 시스템 메시지/사진만 있는 메시지는 스킵
             continue
 
         sender = _pick_first(msg, ["sender_name", "sender", "author", "from"]) or ""

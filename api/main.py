@@ -30,21 +30,19 @@ def create_app() -> FastAPI:
     # ------------------------------------
     # ⚙️ CORS 설정
     # ------------------------------------
-    # 운영 단계: 필요한 Origin만 명시
     origins = [
-        "http://54.79.20.218:8000",   # 👉 AI 서버 주소 (필수)
-        "http://13.209.35.235:8080",  # 👉 Spring 백엔드 주소 (필수)
-        "http://localhost:3000",      # 👉 로컬 개발용 (필요 시)
+        "http://54.79.20.218:8000",
+        "http://13.209.35.235:8080",
+        "http://localhost:3000",
     ]
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
-        allow_credentials=True,   # 도메인을 특정했으므로 credentials 허용 가능
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
 
     # ------------------------------------
     # ⚙️ 기타 미들웨어
@@ -60,13 +58,11 @@ def create_app() -> FastAPI:
 
     # ------------------------------------
     # ✨ Chat-to-Diary
-    # (이미 라우터 내부에 prefix="/chat-diary" 있음)
     # ------------------------------------
     app.include_router(chat_diary_router)
 
     # ------------------------------------
     # ✨ Picture-Diary
-    # (router 내부에 prefix 선언되어 있음)
     # ------------------------------------
     app.include_router(picture_diary_router)
 
@@ -80,7 +76,4 @@ def create_app() -> FastAPI:
     return app
 
 
-# ------------------------------------
-# ⚡ FastAPI 실행 객체
-# ------------------------------------
 app = create_app()

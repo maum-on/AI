@@ -12,11 +12,8 @@ router = APIRouter(
     tags=["picture_diary"]
 )
 
-@router.post("/analyze", response_model=PictureDiaryResponse)
-async def analyze_picture_diary(body: PictureDiaryRequest):
-    """
-    그림 URL을 받아서 간단한 심리 테스트 결과 생성하는 API
-    """
-    style = analyze_image_style(req.image_url)
-    result = generate_result(style)
-    return PictureDiaryResponse(result=result)
+@router.post("/analyze")
+async def analyze_picture_diary(file: UploadFile = File(...)):
+    image_bytes = await file.read()
+    result = analyze_image_style(image_bytes)
+    return result
