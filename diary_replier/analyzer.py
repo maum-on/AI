@@ -73,10 +73,6 @@ def _judge_valence(text: str) -> str:
     if any(e in emos for e in ["sad", "angry"]):
         return "negative"
 
-    # empty만 있으면 애매하니 negative 쪽으로 보는 편
-    if "empty" in emos and not emos:
-        return "negative"
-
     # 키워드 기반 기본 로직
     if pos == 0 and neg == 0:
         # 진짜 아무 단서도 없으면 neutral
@@ -116,19 +112,26 @@ def analyze(text: str) -> AnalysisResult:
     - summary : 간단 요약
     """
     valence = _judge_valence(text)
-    emotions = _detect_emotions(text)
+    detected = _detect_emotions(text)
     summary = _make_summary(text)
 
-    # 감정이 하나도 안 잡힌 경우, valence를 기준으로 폴백
-    if not emotions:
-        if valence == "positive":
-            emotions = ["happy"]
-        elif valence == "negative":
-            emotions = ["sad"]
-        else:  # neutral
-            emotions = ["empty"]
+    # 🔥 1) neutral이면 무조건 ["empty"]
+    if valence == "neutral":
+        emotions = ["empty"]
+    else:
+        # 2) positive / negative일 때는 감정 키워드 우선 사용
+        if detected:
+            emotions = detected
+        else:
+            # 3) 키워드가 하나도 없으면 valence 기준으로 폴백
+            if valence == "positive":
+                emotions = ["happy"]
+            elif valence == "negative":
+                emotions = ["sad"]
+            else:
+                emotions = ["empty"]
 
-    # 혹시 모르니, emotions 안에 허용되지 않은 값이 있으면 정리
+    # 4) 방어 코드: 혹시 허용 안 되는 값이 섞여 있으면 정리
     allowed = {"happy", "sad", "angry", "shy", "empty"}
     emotions = [e for e in emotions if e in allowed]
     if not emotions:
